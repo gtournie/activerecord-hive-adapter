@@ -15,7 +15,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rcov'
   s.add_development_dependency 'ruby-debug'
 
-  s.add_runtime_dependency 'activerecord', '~> 3'
+  s.add_runtime_dependency 'activerecord', '~> 4.0.0.rc1'
   s.add_runtime_dependency 'rbhive', '~> 0.1'
   s.add_runtime_dependency 'json'
   
