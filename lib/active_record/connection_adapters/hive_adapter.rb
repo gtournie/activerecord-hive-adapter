@@ -61,7 +61,54 @@ module ActiveRecord
         :timestamp   => { :name => "TIMESTAMP" },
       }
 
+      class ColumnDefinition < ActiveRecord::ConnectionAdapters::ColumnDefinition
+        attr_accessor :partition
+      end
+
+      class SchemaCreation < AbstractAdapter::SchemaCreation
+        private
+
+        def visit_TableDefinition(o)
+          create_sql = "CREATE#{' TEMPORARY' if o.temporary} TABLE "
+          create_sql << "#{quote_table_name(o.name)} ("
+          create_sql << o.columns.map { |c| accept c }.join(', ')
+          create_sql << ") "
+
+          if o.partitions
+            create_sql << "PARTITIONED BY ("
+            create_sql << o.partitions.map { |c| accept c }.join(', ')
+            create_sql << ") "
+          end
+
+          create_sql << "#{o.options}"
+
+          create_sql
+        end
+      end
+
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
+        def column(name, type = nil, options = {})
+          super
+
+          column = self[name]
+          column.partition = options[:partition]
+
+          self
+        end
+
+        def columns
+          @columns_hash.values.reject { |c| c.partition }
+        end
+
+        def partitions
+          @columns_hash.values.select { |c| c.partition }
+        end
+
+        private
+
+        def create_column_definition(name, type)
+          ColumnDefinition.new name, type
+        end
       end
 
       class BindSubstitution < Arel::Visitors::Hive # :nodoc:
@@ -164,6 +211,10 @@ module ActiveRecord
 
       def quote_column_name(name) #:nodoc:
         %Q(#{name.to_s.gsub('"', '""')})
+      end
+
+      def schema_creation
+        SchemaCreation.new self
       end
 
       def select(sql, name = nil, binds = [])
