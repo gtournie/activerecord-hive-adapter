@@ -74,7 +74,7 @@ module ActiveRecord
           create_sql << o.columns.map { |c| accept c }.join(', ')
           create_sql << ") "
 
-          if o.partitions
+          if o.partitions.any?
             create_sql << "PARTITIONED BY ("
             create_sql << o.partitions.map { |c| accept c }.join(', ')
             create_sql << ") "
