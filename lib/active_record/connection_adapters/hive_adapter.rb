@@ -221,6 +221,12 @@ module ActiveRecord
         exec_query(sql, name, binds)
       end
 
+      def select_in_batch(sql, batch = 1000, &block)        
+        @connection.fetch_in_batch(sql, batch) do |result_set|
+          block.yield(result_set)
+        end
+      end
+
       def select_rows(query, name = nil)
         @connection.fetch(query)
       end

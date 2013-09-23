@@ -3,7 +3,7 @@ $:.push File.expand_path("../lib", __FILE__)
 
 Gem::Specification.new do |s|
   s.name        = "activerecord-hive-adapter"
-  s.version     = "0.0.2"
+  s.version     = "0.0.3"
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Masahji Stewart", "Blake Petetan"]
   s.email       = ["masahji@synctree.com", "blake@synctree.com"]
@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'ruby-debug'
 
   s.add_runtime_dependency 'activerecord', '~> 4.0.0'
-  s.add_runtime_dependency 'rbhive', '~> 0.1'
+  s.add_runtime_dependency 'rbhive', '~> 0.2.95'
   s.add_runtime_dependency 'json'
   
   s.rubyforge_project = "activerecord-hive-adapter"
