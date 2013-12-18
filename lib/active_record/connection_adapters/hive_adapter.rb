@@ -6,17 +6,17 @@ require 'json'
 module Arel
   module Visitors
     class Hive < Arel::Visitors::ToSql
-      def visit_Arel_Nodes_InsertStatement o
+      def visit_Arel_Nodes_InsertStatement o, a
         [
-          "INSERT INTO TABLE #{visit o.relation}",
+          "INSERT INTO TABLE #{visit o.relation, a}",
           (visit o.values if o.values),
         ].compact.join ' '
       end
 
-      def visit_Arel_Nodes_Values o
+      def visit_Arel_Nodes_Values o, a
         "SELECT (#{o.expressions.zip(o.columns).map { |value, attr|
           if Nodes::SqlLiteral === value
-            visit value
+            visit value, a
           else
             quote(value, attr && column_for(attr))
           end
@@ -54,6 +54,7 @@ module ActiveRecord
         :double      => { :name => "DOUBLE" },
         :float       => { :name => "FLOAT" },
         :integer     => { :name => "INT" },
+        :map         => { :name => "MAP<STRING, STRING>" },
         :primary_key => "INT",
         :text        => { :name => "STRING" },
         :string      => { :name => "STRING"},
@@ -102,6 +103,14 @@ module ActiveRecord
 
         def partitions
           @columns_hash.values.select { |c| c.partition }
+        end
+
+        [:array, :map].each do |column_type|
+          define_method column_type do |*args|
+            options = args.extract_options!
+            column_names = args
+            column_names.each { |name| column(name, column_type, options) }
+          end
         end
 
         private
