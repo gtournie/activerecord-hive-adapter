@@ -35,8 +35,15 @@ module ActiveRecord
         raise ArgumentError, "No database file specified. Missing argument: database"
       end
 
-      connection = RBHive::Connection.new(config[:host], config[:port] || 10_000, logger)
+      params = {}
+      if config.has_key?(:transport)
+        params[:transport] = config[:transport].to_sym
+        params[:sasl_params] = config[:sasl_params] || {} if 'sasl' == config[:transport].to_s
+      end
+
+      connection = RBHive::TCLIConnection.new(config[:host], config[:port] || 10_000, params, logger)
       connection.open
+      connection.open_session
 
       ConnectionAdapters::HiveAdapter.new(connection, logger, config)
     end
@@ -127,12 +134,13 @@ module ActiveRecord
       def initialize(connection, logger, config)
         super(connection, logger)
 
+        @config = config
         @dual = config[:dual] || "dual"
         @visitor = unprepared_visitor
 
         execute("USE #{config[:database]}")
 
-        initialize_dual_table
+        # initialize_dual_table
       end
 
       def adapter_name
@@ -174,9 +182,21 @@ module ActiveRecord
         cols
       end
 
+      LIMIT_OFFSET_REG = /\slimit\s+(\d+)\s+offset\s+(\d+)/i
+
       def execute(query, name = nil)
+        if query =~ LIMIT_OFFSET_REG
+          limit, offset = query.scan(LIMIT_OFFSET_REG).flatten.map(&:to_i)
+          if offset > 0
+            result = @connection.fetch(query.sub(LIMIT_OFFSET_REG, " LIMIT #{limit + offset}"))
+            result.slice!(0, offset)
+            return result
+          else
+            query = query.sub(LIMIT_OFFSET_REG, " LIMIT #{limit}")
+          end
+        end
         @connection.fetch(query)
-      end 
+      end
 
       def exec_query(sql, name = 'SQL', binds = [])
         result = execute(sql, name)
@@ -195,11 +215,11 @@ module ActiveRecord
       end
 
       def initialize_dual_table
-        unless table_exists?(dual)
-          execute(%{CREATE TABLE #{dual} (dummy STRING)})
-          execute(%{LOAD DATA LOCAL INPATH '/etc/hosts' OVERWRITE INTO TABLE #{dual}})
-          execute(%{INSERT OVERWRITE TABLE #{dual} SELECT 1 FROM #{dual} LIMIT 1})
-        end
+        # unless table_exists?(dual)
+        #   execute(%{CREATE TABLE #{dual} (dummy STRING)})
+        #   execute(%{LOAD DATA LOCAL INPATH '/etc/hosts' OVERWRITE INTO TABLE #{dual}})
+        #   execute(%{INSERT OVERWRITE TABLE #{dual} SELECT 1 FROM #{dual} LIMIT 1})
+        # end
       end
  
       def last_inserted_id(result)
@@ -237,7 +257,7 @@ module ActiveRecord
       end
 
       def select_rows(query, name = nil)
-        @connection.fetch(query)
+        execute(query)
       end
 
       def supports_migrations?
@@ -250,7 +270,8 @@ module ActiveRecord
       end
 
       def table_exists?(table_name)
-        execute("SHOW TABLES '#{table_name}'").any?
+        table_name = table_name.to_s
+        select_rows("SHOW TABLES").any? { |table| table[:tableName] == table_name }
       end
 
       # Maps logical Rails types to Hive-specific data types.

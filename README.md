@@ -1,7 +1,7 @@
 ActiveRecord::ConnectionAdapters::HiveAdapter
 =============================================
 
-Easy support for Hive using ActiveRecord
+Easy support for **Hive2** using ActiveRecord
 
 
 Installing
